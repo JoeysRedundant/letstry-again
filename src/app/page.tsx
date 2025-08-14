@@ -1,5 +1,5 @@
 'use client';
-
+import { Analytics } from "@vercel/analytics/react"
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Check, Clock, X } from 'lucide-react';
 
