@@ -1,0 +1,8 @@
+{
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "https://todo-app-nextjs-git-main-joseph-s-projects.vercel.app/$1"
+        }
+    ]
+}
