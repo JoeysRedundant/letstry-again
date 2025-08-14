@@ -28,7 +28,7 @@ export default function TodoApp() {
   useEffect(() => {
     const savedTodos = localStorage.getItem('todos');
     if (savedTodos) {
-      const parsedTodos = JSON.parse(savedTodos).map((todo: { id: string; text: string; completed: boolean; createdAt: string; timer?: any }) => ({
+              const parsedTodos = JSON.parse(savedTodos).map((todo: { id: string; text: string; completed: boolean; createdAt: string; timer?: { duration: number; startTime: string; isActive: boolean } }) => ({
         ...todo,
         createdAt: new Date(todo.createdAt),
         timer: todo.timer ? {
@@ -243,12 +243,12 @@ export default function TodoApp() {
                           </span>
                         </div>
                       )}
-                      {todo.timer && !remainingTime && !todo.completed && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
-                          <Clock size={12} />
-                          <span>Time's up!</span>
-                        </div>
-                      )}
+                                             {todo.timer && !remainingTime && !todo.completed && (
+                         <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                           <Clock size={12} />
+                           <span>Time&apos;s up!</span>
+                         </div>
+                       )}
                     </div>
 
                     <button
@@ -291,7 +291,7 @@ export default function TodoApp() {
               </button>
             </div>
 
-            <p className="text-gray-600 mb-4">"{pendingTodo}"</p>
+            <p className="text-gray-600 mb-4">&quot;{pendingTodo}&quot;</p>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
