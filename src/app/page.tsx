@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Check, X } from 'lucide-react';
+import { Plus, Trash2, Check } from 'lucide-react';
 
 interface Todo {
   id: string;
@@ -19,7 +19,7 @@ export default function TodoApp() {
   useEffect(() => {
     const savedTodos = localStorage.getItem('todos');
     if (savedTodos) {
-      const parsedTodos = JSON.parse(savedTodos).map((todo: any) => ({
+      const parsedTodos = JSON.parse(savedTodos).map((todo: { id: string; text: string; completed: boolean; createdAt: string }) => ({
         ...todo,
         createdAt: new Date(todo.createdAt)
       }));
@@ -107,7 +107,7 @@ export default function TodoApp() {
               ].map(({ key, label, count }) => (
                 <button
                   key={key}
-                  onClick={() => setFilter(key as any)}
+                  onClick={() => setFilter(key as 'all' | 'active' | 'completed')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     filter === key
                       ? 'bg-white text-blue-600 shadow-sm'
