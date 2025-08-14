@@ -1,27 +1,40 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Clock, X } from 'lucide-react';
 
 interface Todo {
   id: string;
   text: string;
   completed: boolean;
   createdAt: Date;
+  timer?: {
+    duration: number; // in minutes
+    startTime: Date;
+    isActive: boolean;
+  };
 }
 
 export default function TodoApp() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [pendingTodo, setPendingTodo] = useState('');
+  const [timerMinutes, setTimerMinutes] = useState(30);
+  const [timerSeconds, setTimerSeconds] = useState(0);
 
   // Load todos from localStorage on component mount
   useEffect(() => {
     const savedTodos = localStorage.getItem('todos');
     if (savedTodos) {
-      const parsedTodos = JSON.parse(savedTodos).map((todo: { id: string; text: string; completed: boolean; createdAt: string }) => ({
+      const parsedTodos = JSON.parse(savedTodos).map((todo: { id: string; text: string; completed: boolean; createdAt: string; timer?: any }) => ({
         ...todo,
-        createdAt: new Date(todo.createdAt)
+        createdAt: new Date(todo.createdAt),
+        timer: todo.timer ? {
+          ...todo.timer,
+          startTime: new Date(todo.timer.startTime)
+        } : undefined
       }));
       setTodos(parsedTodos);
     }
@@ -32,18 +45,63 @@ export default function TodoApp() {
     localStorage.setItem('todos', JSON.stringify(todos));
   }, [todos]);
 
+  // Timer countdown effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTodos(prevTodos =>
+        prevTodos.map(todo => {
+          if (todo.timer && todo.timer.isActive && !todo.completed) {
+            const now = new Date();
+            const elapsed = Math.floor((now.getTime() - todo.timer.startTime.getTime()) / 1000);
+            const remaining = (todo.timer.duration * 60) - elapsed;
+
+            if (remaining <= 0) {
+              // Timer finished
+              return { ...todo, timer: { ...todo.timer, isActive: false } };
+            }
+          }
+          return todo;
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const addTodo = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTodo.trim()) {
-      const todo: Todo = {
-        id: Date.now().toString(),
-        text: newTodo.trim(),
-        completed: false,
-        createdAt: new Date()
-      };
-      setTodos([...todos, todo]);
-      setNewTodo('');
+      setPendingTodo(newTodo.trim());
+      setShowTimerModal(true);
     }
+  };
+
+  const confirmAddTodo = () => {
+    const totalSeconds = (timerMinutes * 60) + timerSeconds;
+    const todo: Todo = {
+      id: Date.now().toString(),
+      text: pendingTodo,
+      completed: false,
+      createdAt: new Date(),
+      timer: {
+        duration: totalSeconds / 60,
+        startTime: new Date(),
+        isActive: true
+      }
+    };
+    setTodos([...todos, todo]);
+    setNewTodo('');
+    setPendingTodo('');
+    setShowTimerModal(false);
+    setTimerMinutes(30);
+    setTimerSeconds(0);
+  };
+
+  const cancelAddTodo = () => {
+    setShowTimerModal(false);
+    setPendingTodo('');
+    setTimerMinutes(30);
+    setTimerSeconds(0);
   };
 
   const toggleTodo = (id: string) => {
@@ -58,6 +116,24 @@ export default function TodoApp() {
 
   const clearCompleted = () => {
     setTodos(todos.filter(todo => !todo.completed));
+  };
+
+  const getRemainingTime = (todo: Todo) => {
+    if (!todo.timer || !todo.timer.isActive || todo.completed) return null;
+
+    const now = new Date();
+    const elapsed = Math.floor((now.getTime() - todo.timer.startTime.getTime()) / 1000);
+    const remaining = (todo.timer.duration * 60) - elapsed;
+
+    if (remaining <= 0) return null;
+
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    return { minutes, seconds };
+  };
+
+  const formatTime = (minutes: number, seconds: number) => {
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const filteredTodos = todos.filter(todo => {
@@ -127,44 +203,63 @@ export default function TodoApp() {
                 {filter === 'all' ? 'No todos yet. Add one above!' : `No ${filter} todos.`}
               </div>
             ) : (
-              filteredTodos.map(todo => (
-                <div
-                  key={todo.id}
-                  className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${
-                    todo.completed
-                      ? 'bg-gray-50 border-gray-200'
-                      : 'bg-white border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <button
-                    onClick={() => toggleTodo(todo.id)}
-                    className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+              filteredTodos.map(todo => {
+                const remainingTime = getRemainingTime(todo);
+                return (
+                  <div
+                    key={todo.id}
+                    className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${
                       todo.completed
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'border-gray-300 hover:border-green-500'
+                        ? 'bg-gray-50 border-gray-200'
+                        : 'bg-white border-gray-300 hover:border-gray-400'
                     }`}
                   >
-                    {todo.completed && <Check size={14} />}
-                  </button>
+                    <button
+                      onClick={() => toggleTodo(todo.id)}
+                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        todo.completed
+                          ? 'bg-green-500 border-green-500 text-white'
+                          : 'border-gray-300 hover:border-green-500'
+                      }`}
+                    >
+                      {todo.completed && <Check size={14} />}
+                    </button>
 
-                  <span
-                    className={`flex-1 text-left ${
-                      todo.completed
-                        ? 'line-through text-gray-500'
-                        : 'text-gray-800'
-                    }`}
-                  >
-                    {todo.text}
-                  </span>
+                    <div className="flex-1">
+                      <span
+                        className={`text-left block ${
+                          todo.completed
+                            ? 'line-through text-gray-500'
+                            : 'text-gray-800'
+                        }`}
+                      >
+                        {todo.text}
+                      </span>
+                      {todo.timer && remainingTime && (
+                        <div className="flex items-center gap-1 mt-1 text-sm text-orange-600">
+                          <Clock size={12} />
+                          <span className="font-mono">
+                            {formatTime(remainingTime.minutes, remainingTime.seconds)}
+                          </span>
+                        </div>
+                      )}
+                      {todo.timer && !remainingTime && !todo.completed && (
+                        <div className="flex items-center gap-1 mt-1 text-sm text-red-600">
+                          <Clock size={12} />
+                          <span>Time's up!</span>
+                        </div>
+                      )}
+                    </div>
 
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -181,6 +276,70 @@ export default function TodoApp() {
           )}
         </div>
       </div>
+
+      {/* Timer Modal */}
+      {showTimerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Set Timer</h3>
+              <button
+                onClick={cancelAddTodo}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">"{pendingTodo}"</p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                How long should this task take?
+              </label>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Minutes</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="999"
+                    value={timerMinutes}
+                    onChange={(e) => setTimerMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Seconds</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={timerSeconds}
+                    onChange={(e) => setTimerSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelAddTodo}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAddTodo}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Add Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
